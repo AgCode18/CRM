@@ -46,3 +46,5 @@ Thumbs.db
 pids/
 *.pid
 *.pid.lock
+
+/src/generated/prisma
