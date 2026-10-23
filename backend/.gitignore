@@ -1,0 +1,48 @@
+
+# Dependencies
+/node_modules
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Build output
+/dist/
+/build/
+/coverage/
+
+# Prisma generated client
+# Ignore this only if your Prisma client is generated into src/generated/prisma
+/src/generated/prisma/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor settings
+.vscode/
+.idea/
+
+# Debugging
+*.stackdump
+
+# Test output
+.nyc_output/
+
+# Runtime files
+pids/
+*.pid
+*.pid.lock
