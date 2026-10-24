@@ -1,7 +1,7 @@
 
 import { Router } from "express";
-import { asyncHandler } from "../utils/async-handler.js";
-import { requireSuperAdmin } from "../middleware/super-admin.middleware.js";
+import { asyncHandler } from "../utils/async.handler.js";
+import { requireSuperAdmin } from "../middleware/super.admin.middleware.js";
 
 import {
     superAdminLogin,
@@ -10,7 +10,9 @@ import {
     superAdminOrganizationDetails,
     superAdminUpdateOrganizationStatus,
     superAdminUsers,
-} from "../controllers/super-admin.controller.js";
+    superAdminAuditLogs
+} from "../controllers/super.admin.controller.js";
+
 
 const router = Router();
 
@@ -19,6 +21,8 @@ router.post("/login", asyncHandler(superAdminLogin));
 
 // All routes below require verified Super Admin access.
 router.use(requireSuperAdmin);
+
+router.get("/audit-logs", asyncHandler(superAdminAuditLogs));
 
 router.get("/dashboard", asyncHandler(superAdminDashboard));
 

@@ -45,6 +45,14 @@ export async function loginSuperAdmin({ email, password }) {
         throw error;
     }
 
+    await prisma.auditLog.create({
+        data: {
+            action: "SUPER_ADMIN_LOGIN",
+            description: "Super Admin logged in successfully",
+            actorId: user.id,
+        },
+    });
+
     return {
         accessToken: createAdminToken(user.id),
         admin: {
@@ -177,29 +185,71 @@ export async function getOrganizationDetails(id) {
     return organization;
 }
 
-export async function updateOrganizationStatus(id, status) {
-    const result = await prisma.organization.updateMany({
+
+export async function updateOrganizationStatus(
+    id,
+    status,
+    actorId
+) {
+    const organization = await prisma.organization.findUnique({
         where: { id },
-        data: { status },
+        select: {
+            id: true,
+            name: true,
+            status: true,
+        },
     });
 
-    if (result.count === 0) {
+    if (!organization) {
         const error = new Error("Organization not found");
         error.statusCode = 404;
         throw error;
     }
 
-    return prisma.organization.findUnique({
-        where: { id },
-        select: {
-            id: true,
-            name: true,
-            slug: true,
-            status: true,
-            updatedAt: true,
-        },
+    if (organization.status === status) {
+        return organization;
+    }
+
+    const action =
+        status === "SUSPENDED"
+            ? "ORGANIZATION_SUSPENDED"
+            : "ORGANIZATION_ACTIVATED";
+
+    const description =
+        status === "SUSPENDED"
+            ? `Organization ${organization.name} suspended`
+            : `Organization ${organization.name} activated`;
+
+    return prisma.$transaction(async (tx) => {
+        const updated = await tx.organization.update({
+            where: { id },
+            data: { status },
+            select: {
+                id: true,
+                name: true,
+                slug: true,
+                status: true,
+                updatedAt: true,
+            },
+        });
+
+        await tx.auditLog.create({
+            data: {
+                action,
+                description,
+                actorId,
+                organizationId: id,
+                metadata: {
+                    previousStatus: organization.status,
+                    newStatus: status,
+                },
+            },
+        });
+
+        return updated;
     });
 }
+
 
 export async function listPlatformUsers({ page, limit, search }) {
     const where = {
@@ -244,6 +294,50 @@ export async function listPlatformUsers({ page, limit, search }) {
 
     return {
         users,
+        pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+        },
+    };
+}
+
+
+
+export async function listAuditLogs({ page, limit }) {
+    const [logs, total] = await prisma.$transaction([
+        prisma.auditLog.findMany({
+            select: {
+                id: true,
+                action: true,
+                description: true,
+                actorId: true,
+                organizationId: true,
+                metadata: true,
+                createdAt: true,
+                actor: {
+                    select: {
+                        name: true,
+                        email: true,
+                    },
+                },
+                organization: {
+                    select: {
+                        name: true,
+                        slug: true,
+                    },
+                },
+            },
+            orderBy: { createdAt: "desc" },
+            skip: (page - 1) * limit,
+            take: limit,
+        }),
+        prisma.auditLog.count(),
+    ]);
+
+    return {
+        logs,
         pagination: {
             page,
             limit,

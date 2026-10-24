@@ -15,7 +15,6 @@ enum LeadStatus {
   CONVERTED
 }
 
-
 enum PlatformRole {
   SUPER_ADMIN
   USER
@@ -25,7 +24,6 @@ enum OrganizationStatus {
   ACTIVE
   SUSPENDED
 }
-
 
 enum DealStage {
   PROSPECTING
@@ -57,13 +55,19 @@ enum OrganizationRole {
   SALES_REP
 }
 
+enum AuditAction {
+  SUPER_ADMIN_LOGIN
+  ORGANIZATION_SUSPENDED
+  ORGANIZATION_ACTIVATED
+}
+
 model Organization {
-  id        String   @id @default(cuid())
+  id        String             @id @default(cuid())
   name      String
-  slug      String   @unique
-  status OrganizationStatus @default(ACTIVE)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  slug      String             @unique
+  status    OrganizationStatus @default(ACTIVE)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
 
   memberships OrganizationMembership[]
   leads       Lead[]
@@ -71,16 +75,17 @@ model Organization {
   deals       Deal[]
   tasks       Task[]
   activities  Activity[]
+  auditLogs   AuditLog[]
 }
 
 model User {
-  id           String   @id @default(cuid())
+  id           String       @id @default(cuid())
   name         String
-  email        String   @unique
+  email        String       @unique
   passwordHash String
   platformRole PlatformRole @default(USER)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
   memberships OrganizationMembership[]
 
@@ -89,6 +94,7 @@ model User {
   deals      Deal[]     @relation("DealAssignee")
   tasks      Task[]     @relation("TaskAssignee")
   activities Activity[]
+  auditLogs AuditLog[]
 
   @@index([email])
 }
@@ -197,4 +203,22 @@ model Activity {
 
   @@index([organizationId, createdAt])
   @@index([organizationId, userId])
+}
+
+model AuditLog {
+  id             String      @id @default(cuid())
+  action         AuditAction
+  description    String      @db.Text
+  actorId        String?
+  organizationId String?
+  metadata       Json?
+  createdAt      DateTime    @default(now())
+
+  actor       User?         @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([actorId, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([action, createdAt])
 }

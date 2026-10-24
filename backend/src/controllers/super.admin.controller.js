@@ -7,6 +7,7 @@ import {
     getOrganizationDetails,
     updateOrganizationStatus,
     listPlatformUsers,
+    listAuditLogs,
 } from "../services/super-admin.service.js";
 
 const loginSchema = z.object({
@@ -74,7 +75,9 @@ export async function superAdminUpdateOrganizationStatus(req, res) {
     const id = idSchema.parse(req.params.id);
     const { status } = statusSchema.parse(req.body);
 
-    const data = await updateOrganizationStatus(id, status);
+    const data = await updateOrganizationStatus(id,
+        status,
+        req.platformAdmin.id);
 
     res.status(200).json({
         success: true,
@@ -86,6 +89,21 @@ export async function superAdminUpdateOrganizationStatus(req, res) {
 export async function superAdminUsers(req, res) {
     const query = listQuerySchema.parse(req.query);
     const data = await listPlatformUsers(query);
+
+    res.status(200).json({
+        success: true,
+        data,
+    });
+}
+
+
+export async function superAdminAuditLogs(req, res) {
+    const query = listQuerySchema.parse(req.query);
+
+    const data = await listAuditLogs({
+        page: query.page,
+        limit: query.limit,
+    });
 
     res.status(200).json({
         success: true,

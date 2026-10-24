@@ -35,6 +35,7 @@ export async function requireOrganization(req, res, next) {
                             id: true,
                             name: true,
                             slug: true,
+                            status: true,
                         },
                     },
                 },
@@ -44,6 +45,14 @@ export async function requireOrganization(req, res, next) {
             return res.status(403).json({
                 success: false,
                 message: "You do not have access to this organization",
+            });
+        }
+
+        if (membership.organization.status === "SUSPENDED") {
+            return res.status(403).json({
+                success: false,
+                code: "ORGANIZATION_SUSPENDED",
+                message: "This organization is suspended. Contact platform support.",
             });
         }
 
