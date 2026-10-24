@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -43,6 +38,13 @@ enum ActivityType {
   STATUS_CHANGE
 }
 
+enum OrganizationRole {
+  OWNER
+  ADMIN
+  MANAGER
+  SALES_REP
+}
+
 model Organization {
   id        String   @id @default(cuid())
   name      String
@@ -50,31 +52,46 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users      User[]
-  leads      Lead[]
-  contacts   Contact[]
-  deals      Deal[]
-  tasks      Task[]
-  activities Activity[]
+  memberships OrganizationMembership[]
+  leads       Lead[]
+  contacts    Contact[]
+  deals       Deal[]
+  tasks       Task[]
+  activities  Activity[]
 }
 
 model User {
-  id             String   @id @default(cuid())
-  name           String
-  email          String   @unique
-  password       String
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships OrganizationMembership[]
+
+  leads      Lead[]     @relation("LeadAssignee")
+  contacts   Contact[]  @relation("ContactAssignee")
+  deals      Deal[]     @relation("DealAssignee")
+  tasks      Task[]     @relation("TaskAssignee")
+  activities Activity[]
+
+  @@index([email])
+}
+
+model OrganizationMembership {
+  id             String           @id @default(cuid())
+  userId         String
   organizationId String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  role           OrganizationRole @default(SALES_REP)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  leads        Lead[]
-  contacts     Contact[]
-  deals        Deal[]
-  tasks        Task[]
-  activities   Activity[]
 
-  @@index([organizationId])
+  @@unique([userId, organizationId])
+  @@index([organizationId, role])
 }
 
 model Lead {
@@ -85,17 +102,17 @@ model Lead {
   company        String?
   source         String?
   status         LeadStatus @default(NEW)
-  notes          String?
+  notes          String?    @db.Text
   organizationId String
   assignedToId   String?
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  assignedTo   User?        @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedTo   User?        @relation("LeadAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, status])
-  @@index([assignedToId])
+  @@index([organizationId, assignedToId])
 }
 
 model Contact {
@@ -111,9 +128,10 @@ model Contact {
   updatedAt      DateTime @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  assignedTo   User?        @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedTo   User?        @relation("ContactAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
+  @@index([organizationId, assignedToId])
 }
 
 model Deal {
@@ -128,9 +146,10 @@ model Deal {
   updatedAt      DateTime  @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  assignedTo   User?        @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedTo   User?        @relation("DealAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, stage])
+  @@index([organizationId, assignedToId])
 }
 
 model Task {
@@ -145,9 +164,10 @@ model Task {
   updatedAt      DateTime   @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  assignedTo   User?        @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedTo   User?        @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, status])
+  @@index([organizationId, assignedToId])
 }
 
 model Activity {
@@ -162,4 +182,5 @@ model Activity {
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, createdAt])
+  @@index([organizationId, userId])
 }
