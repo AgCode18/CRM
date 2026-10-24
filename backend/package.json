@@ -9,7 +9,8 @@
     "start": "node src/server.js",
     "db:validate": "prisma validate",
     "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev"
+    "db:migrate": "prisma migrate dev",
+    "super-admin:create": "node src/scripts/create-super-admin.js"
   },
   "keywords": [],
   "author": "",

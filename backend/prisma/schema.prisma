@@ -15,6 +15,18 @@ enum LeadStatus {
   CONVERTED
 }
 
+
+enum PlatformRole {
+  SUPER_ADMIN
+  USER
+}
+
+enum OrganizationStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+
 enum DealStage {
   PROSPECTING
   QUALIFICATION
@@ -49,6 +61,7 @@ model Organization {
   id        String   @id @default(cuid())
   name      String
   slug      String   @unique
+  status OrganizationStatus @default(ACTIVE)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -65,6 +78,7 @@ model User {
   name         String
   email        String   @unique
   passwordHash String
+  platformRole PlatformRole @default(USER)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

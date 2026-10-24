@@ -9,6 +9,13 @@ import { notFound } from "./middleware/not-found.js";
 import { errorHandler } from "./middleware/error-handler.js";
 
 import authRoutes from "./routes/auth.routes.js";
+import organizationRoutes from "./routes/organization.routes.js"
+import roleRoutes from "./routes/role.routes.js";
+import leadRoutes from "./routes/lead.routes.js";
+import superAdminRoutes from "./routes/super-admin.routes.js";
+
+
+
 
 const app = express();
 
@@ -44,9 +51,12 @@ app.get("/", (req, res) => {
     });
 });
 
-app.use("/api/v1/auth", authRoutes);
-
 app.use("/api/v1/health", healthRoutes);
+app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/organization", organizationRoutes);
+app.use("/api/v1/roles", roleRoutes);
+app.use("/api/v1/leads", leadRoutes);
+app.use("/api/v1/super-admin", superAdminRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
