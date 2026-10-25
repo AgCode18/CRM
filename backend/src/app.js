@@ -13,9 +13,9 @@ import organizationRoutes from "./routes/organization.routes.js"
 import roleRoutes from "./routes/role.routes.js";
 import leadRoutes from "./routes/lead.routes.js";
 import superAdminRoutes from "./routes/super-admin.routes.js";
-
-
-
+import teamRoutes from "./routes/team.routes.js"
+import invitationRoutes from "./routes/invitation.routes.js";
+import contactRoutes from "./routes/contact.routes.js";
 
 const app = express();
 
@@ -53,10 +53,13 @@ app.get("/", (req, res) => {
 
 app.use("/api/v1/health", healthRoutes);
 app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/super-admin", superAdminRoutes);
 app.use("/api/v1/organization", organizationRoutes);
 app.use("/api/v1/roles", roleRoutes);
 app.use("/api/v1/leads", leadRoutes);
-app.use("/api/v1/super-admin", superAdminRoutes);
+app.use("/api/v1/team", teamRoutes);
+app.use("/api/v1/invitations", invitationRoutes);
+app.use("/api/v1/contacts", contactRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

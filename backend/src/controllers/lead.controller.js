@@ -1,108 +1,134 @@
 
 import { z } from "zod";
 import {
-    createLead,
     listLeads,
     getLeadById,
+    createLead,
     updateLead,
     deleteLead,
 } from "../services/lead.service.js";
 
-const leadFields = {
-    name: z.string().trim().min(2).max(150),
-    email: z.string().trim().email().max(254).nullable().optional(),
+const optionalText = z.string().trim().max(200).nullable().optional();
+
+const createLeadSchema = z.object({
+    name: z.string().trim().min(1).max(150),
+    email: z.string().trim().email().max(191).nullable().optional(),
     phone: z.string().trim().max(30).nullable().optional(),
     company: z.string().trim().max(150).nullable().optional(),
     source: z.string().trim().max(100).nullable().optional(),
+    notes: z.string().trim().max(5000).nullable().optional(),
+    assigneeId: z.string().min(1).nullable().optional(),
+});
+
+const updateLeadSchema = z.object({
+    name: z.string().trim().min(1).max(150).optional(),
+    email: z.string().trim().email().max(191).nullable().optional(),
+    phone: z.string().trim().max(30).nullable().optional(),
+    company: z.string().trim().max(150).nullable().optional(),
+    source: z.string().trim().max(100).nullable().optional(),
+    notes: z.string().trim().max(5000).nullable().optional(),
     status: z.enum([
         "NEW",
         "CONTACTED",
         "QUALIFIED",
         "LOST",
         "CONVERTED",
-    ]),
-    notes: z.string().trim().max(5000).nullable().optional(),
-    assignedToId: z.string().min(1).nullable().optional(),
-};
-
-const createLeadSchema = z.object({
-    ...leadFields,
-    name: leadFields.name,
-    status: leadFields.status.optional(),
+    ]).optional(),
+    assigneeId: z.string().min(1).nullable().optional(),
+}).refine((data) => Object.keys(data).length > 0, {
+    message: "At least one field must be provided",
 });
 
-const updateLeadSchema = z.object(leadFields).partial().refine(
-    (data) => Object.keys(data).length > 0,
-    { message: "Provide at least one field to update" }
-);
-
-const listQuerySchema = z.object({
+const listLeadsSchema = z.object({
     page: z.coerce.number().int().min(1).default(1),
-    limit: z.coerce.number().int().min(1).max(100).default(10),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
     search: z.string().trim().max(100).default(""),
-    status: leadFields.status.optional(),
+    status: z.enum([
+        "NEW",
+        "CONTACTED",
+        "QUALIFIED",
+        "LOST",
+        "CONVERTED",
+    ]).optional(),
+    assigneeId: z.string().min(1).optional(),
 });
 
-const idSchema = z.string().min(1);
+function validationError(res, parsed) {
+    return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: parsed.error.flatten(),
+    });
+}
 
-export async function createLeadController(req, res) {
-    const input = createLeadSchema.parse(req.body);
+export async function getLeads(req, res) {
+    const parsed = listLeadsSchema.safeParse(req.query);
+    if (!parsed.success) return validationError(res, parsed);
 
-    const lead = await createLead(req.organization.id, input);
+    const data = await listLeads({
+        organizationId: req.organization.id,
+        userId: req.user.id,
+        ...parsed.data,
+    });
+
+    res.json({ success: true, data });
+}
+
+export async function getLead(req, res) {
+    const data = await getLeadById({
+        organizationId: req.organization.id,
+        userId: req.user.id,
+        leadId: req.params.id,
+    });
+
+    res.json({ success: true, data });
+}
+
+export async function postLead(req, res) {
+    const parsed = createLeadSchema.safeParse(req.body);
+    if (!parsed.success) return validationError(res, parsed);
+
+    const data = await createLead({
+        organizationId: req.organization.id,
+        userId: req.user.id,
+        data: parsed.data,
+    });
 
     res.status(201).json({
         success: true,
-        message: "Lead created successfully",
-        data: { lead },
+        message: "Lead created",
+        data,
     });
 }
 
-export async function listLeadsController(req, res) {
-    const filters = listQuerySchema.parse(req.query);
+export async function patchLead(req, res) {
+    const parsed = updateLeadSchema.safeParse(req.body);
+    if (!parsed.success) return validationError(res, parsed);
 
-    const result = await listLeads(req.organization.id, filters);
+    const data = await updateLead({
+        organizationId: req.organization.id,
+        userId: req.user.id,
+        leadId: req.params.id,
+        data: parsed.data,
+    });
 
-    res.status(200).json({
+    res.json({
         success: true,
-        data: result,
+        message: "Lead updated",
+        data,
     });
 }
 
-export async function getLeadController(req, res) {
-    const leadId = idSchema.parse(req.params.id);
-
-    const lead = await getLeadById(req.organization.id, leadId);
-
-    res.status(200).json({
-        success: true,
-        data: { lead },
+export async function removeLead(req, res) {
+    const data = await deleteLead({
+        organizationId: req.organization.id,
+        userId: req.user.id,
+        leadId: req.params.id,
     });
-}
 
-export async function updateLeadController(req, res) {
-    const leadId = idSchema.parse(req.params.id);
-    const input = updateLeadSchema.parse(req.body);
-
-    const lead = await updateLead(
-        req.organization.id,
-        leadId,
-        input
-    );
-
-    res.status(200).json({
+    res.json({
         success: true,
-        message: "Lead updated successfully",
-        data: { lead },
-    });
-}
-
-export async function deleteLeadController(req, res) {
-    const leadId = idSchema.parse(req.params.id);
-
-    await deleteLead(req.organization.id, leadId);
-
-    res.status(200).json({
-        success: true,
-        message: "Lead deleted successfully",
+        message: "Lead deleted",
+        data,
     });
 }

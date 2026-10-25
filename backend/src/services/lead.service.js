@@ -1,81 +1,69 @@
 
 import prisma from "../config/prisma.js";
 
-function createError(message, statusCode) {
+const LEAD_STATUSES = [
+    "NEW",
+    "CONTACTED",
+    "QUALIFIED",
+    "LOST",
+    "CONVERTED",
+];
+
+function httpError(statusCode, message) {
     const error = new Error(message);
     error.statusCode = statusCode;
     return error;
 }
 
-const leadSelect = {
-    id: true,
-    name: true,
-    email: true,
-    phone: true,
-    company: true,
-    source: true,
-    status: true,
-    notes: true,
-    assignedToId: true,
-    createdAt: true,
-    updatedAt: true,
-    assignedTo: {
-        select: {
-            id: true,
-            name: true,
-            email: true,
-        },
-    },
-};
-
-async function validateAssignee(organizationId, assignedToId) {
-    if (assignedToId === undefined || assignedToId === null) {
-        return;
-    }
-
-    const membership = await prisma.organizationMembership.findUnique({
-        where: {
-            userId_organizationId: {
-                userId: assignedToId,
-                organizationId,
-            },
-        },
-        select: { id: true },
+async function requireOrganizationMember(organizationId, userId) {
+    const membership = await prisma.organizationMembership.findFirst({
+        where: { organizationId, userId },
+        select: { id: true, role: true },
     });
 
     if (!membership) {
-        throw createError(
-            "Assignee does not belong to this organization",
-            400
+        throw httpError(403, "You are not a member of this organization");
+    }
+
+    return membership;
+}
+
+async function validateAssignee(organizationId, assigneeId) {
+    if (!assigneeId) return null;
+
+    const membership = await prisma.organizationMembership.findFirst({
+        where: {
+            organizationId,
+            userId: assigneeId,
+        },
+        select: { userId: true },
+    });
+
+    if (!membership) {
+        throw httpError(
+            400,
+            "The assigned user is not a member of this organization"
         );
     }
+
+    return assigneeId;
 }
 
-export async function createLead(organizationId, input) {
-    await validateAssignee(organizationId, input.assignedToId);
-
-    return prisma.lead.create({
-        data: {
-            name: input.name,
-            email: input.email,
-            phone: input.phone,
-            company: input.company,
-            source: input.source,
-            status: input.status,
-            notes: input.notes,
-            assignedToId: input.assignedToId,
-            organizationId,
-        },
-        select: leadSelect,
-    });
-}
-
-export async function listLeads(organizationId, filters) {
-    const { page, limit, search, status } = filters;
+export async function listLeads({
+    organizationId,
+    userId,
+    page = 1,
+    limit = 20,
+    search = "",
+    status,
+    assigneeId,
+}) {
+    await requireOrganizationMember(organizationId, userId);
 
     const where = {
         organizationId,
         ...(status ? { status } : {}),
+        ...(assigneeId ? { assigneeId } : {}),
         ...(search
             ? {
                 OR: [
@@ -88,19 +76,23 @@ export async function listLeads(organizationId, filters) {
             : {}),
     };
 
-    const [leads, total] = await prisma.$transaction([
+    const [total, leads] = await prisma.$transaction([
+        prisma.lead.count({ where }),
         prisma.lead.findMany({
             where,
-            select: leadSelect,
             orderBy: { createdAt: "desc" },
             skip: (page - 1) * limit,
             take: limit,
+            include: {
+                assignee: {
+                    select: { id: true, name: true, email: true },
+                },
+            },
         }),
-        prisma.lead.count({ where }),
     ]);
 
     return {
-        leads,
+        items: leads,
         pagination: {
             page,
             limit,
@@ -110,51 +102,131 @@ export async function listLeads(organizationId, filters) {
     };
 }
 
-export async function getLeadById(organizationId, leadId) {
+export async function getLeadById({
+    organizationId,
+    userId,
+    leadId,
+}) {
+    await requireOrganizationMember(organizationId, userId);
+
     const lead = await prisma.lead.findFirst({
-        where: {
-            id: leadId,
-            organizationId,
+        where: { id: leadId, organizationId },
+        include: {
+            assignee: {
+                select: { id: true, name: true, email: true },
+            },
         },
-        select: leadSelect,
     });
 
-    if (!lead) {
-        throw createError("Lead not found", 404);
-    }
+    if (!lead) throw httpError(404, "Lead not found");
 
     return lead;
 }
 
-export async function updateLead(organizationId, leadId, input) {
-    await getLeadById(organizationId, leadId);
+export async function createLead({
+    organizationId,
+    userId,
+    data,
+}) {
+    await requireOrganizationMember(organizationId, userId);
 
-    if (input.assignedToId !== undefined) {
-        await validateAssignee(organizationId, input.assignedToId);
-    }
+    const assigneeId = await validateAssignee(
+        organizationId,
+        data.assigneeId
+    );
 
-    await prisma.lead.updateMany({
-        where: {
-            id: leadId,
+    return prisma.lead.create({
+        data: {
+            name: data.name.trim(),
+            email: data.email?.trim().toLowerCase() || null,
+            phone: data.phone?.trim() || null,
+            company: data.company?.trim() || null,
+            source: data.source?.trim() || null,
+            notes: data.notes?.trim() || null,
+            status: "NEW",
             organizationId,
+            assigneeId,
         },
-        data: input,
+        include: {
+            assignee: {
+                select: { id: true, name: true, email: true },
+            },
+        },
     });
-
-    return getLeadById(organizationId, leadId);
 }
 
-export async function deleteLead(organizationId, leadId) {
-    const result = await prisma.lead.deleteMany({
-        where: {
-            id: leadId,
-            organizationId,
-        },
+export async function updateLead({
+    organizationId,
+    userId,
+    leadId,
+    data,
+}) {
+    await requireOrganizationMember(organizationId, userId);
+
+    const existing = await prisma.lead.findFirst({
+        where: { id: leadId, organizationId },
+        select: { id: true },
     });
 
-    if (result.count === 0) {
-        throw createError("Lead not found", 404);
+    if (!existing) throw httpError(404, "Lead not found");
+
+    const updateData = {};
+
+    for (const field of ["name", "email", "phone", "company", "source", "notes"]) {
+        if (data[field] !== undefined) {
+            updateData[field] =
+                typeof data[field] === "string" ? data[field].trim() || null : data[field];
+        }
     }
+
+    if (data.email !== undefined && data.email) {
+        updateData.email = data.email.trim().toLowerCase();
+    }
+
+    if (data.status !== undefined) {
+        if (!LEAD_STATUSES.includes(data.status)) {
+            throw httpError(400, "Invalid lead status");
+        }
+        updateData.status = data.status;
+    }
+
+    if (data.assigneeId !== undefined) {
+        updateData.assigneeId = await validateAssignee(
+            organizationId,
+            data.assigneeId
+        );
+    }
+
+    return prisma.lead.update({
+        where: { id: existing.id },
+        data: updateData,
+        include: {
+            assignee: {
+                select: { id: true, name: true, email: true },
+            },
+        },
+    });
+}
+
+export async function deleteLead({
+    organizationId,
+    userId,
+    leadId,
+}) {
+    const membership = await requireOrganizationMember(
+        organizationId,
+        userId
+    );
+
+    if (!["OWNER", "ADMIN"].includes(membership.role)) {
+        throw httpError(403, "Only an owner or admin can delete leads");
+    }
+
+    const result = await prisma.lead.deleteMany({
+        where: { id: leadId, organizationId },
+    });
+
+    if (result.count === 0) throw httpError(404, "Lead not found");
 
     return { id: leadId };
 }

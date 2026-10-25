@@ -34,6 +34,13 @@ enum DealStage {
   LOST
 }
 
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
 enum TaskStatus {
   PENDING
   IN_PROGRESS
@@ -62,13 +69,13 @@ enum AuditAction {
 }
 
 model Organization {
-  id        String             @id @default(cuid())
-  name      String
-  slug      String             @unique
-  status    OrganizationStatus @default(ACTIVE)
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
-
+  id          String                   @id @default(cuid())
+  name        String
+  slug        String                   @unique
+  status      OrganizationStatus       @default(ACTIVE)
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+  invitations OrganizationInvitation[]
   memberships OrganizationMembership[]
   leads       Lead[]
   contacts    Contact[]
@@ -87,14 +94,15 @@ model User {
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
-  memberships OrganizationMembership[]
+  memberships     OrganizationMembership[]
+  sentInvitations OrganizationInvitation[] @relation("OrganizationInvitationsSent")
 
   leads      Lead[]     @relation("LeadAssignee")
   contacts   Contact[]  @relation("ContactAssignee")
   deals      Deal[]     @relation("DealAssignee")
   tasks      Task[]     @relation("TaskAssignee")
   activities Activity[]
-  auditLogs AuditLog[]
+  auditLogs  AuditLog[]
 
   @@index([email])
 }
@@ -214,11 +222,35 @@ model AuditLog {
   metadata       Json?
   createdAt      DateTime    @default(now())
 
-  actor       User?         @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actor        User?         @relation(fields: [actorId], references: [id], onDelete: SetNull)
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
   @@index([actorId, createdAt])
   @@index([organizationId, createdAt])
   @@index([action, createdAt])
+}
+
+model OrganizationInvitation {
+  id         String           @id @default(cuid())
+  email      String           @db.VarChar(191)
+  role       OrganizationRole
+  tokenHash  String           @unique @db.VarChar(64)
+  status     InvitationStatus @default(PENDING)
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  organizationId String?
+  invitedById    String?
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  invitedBy User? @relation("OrganizationInvitationsSent", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status, createdAt])
+  @@index([email, status])
+  @@index([expiresAt, status])
 }
