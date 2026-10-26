@@ -5,14 +5,14 @@ import rateLimit from "express-rate-limit";
 
 import { env } from "./config/env.js";
 import healthRoutes from "./routes/health.routes.js";
-import { notFound } from "./middleware/not-found.js";
-import { errorHandler } from "./middleware/error-handler.js";
+import { notFound } from "./middleware/not.found.js";
+import { errorHandler } from "./middleware/error.handler.js";
 
 import authRoutes from "./routes/auth.routes.js";
 import organizationRoutes from "./routes/organization.routes.js"
 import roleRoutes from "./routes/role.routes.js";
 import leadRoutes from "./routes/lead.routes.js";
-import superAdminRoutes from "./routes/super-admin.routes.js";
+import superAdminRoutes from "./routes/super.admin.routes.js";
 import teamRoutes from "./routes/team.routes.js"
 import invitationRoutes from "./routes/invitation.routes.js";
 import contactRoutes from "./routes/contact.routes.js";
