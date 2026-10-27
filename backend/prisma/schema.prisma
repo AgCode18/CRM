@@ -62,27 +62,81 @@ enum OrganizationRole {
   SALES_REP
 }
 
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_DUE
+  TASK_OVERDUE
+  DEAL_UPDATED
+  DEAL_ASSIGNED
+  SYSTEM
+}
+
+enum AutomationTrigger {
+  LEAD_CREATED
+  LEAD_STATUS_CHANGED
+  DEAL_STAGE_CHANGED
+  TASK_DUE
+}
+
+enum AutomationActionType {
+  CREATE_TASK
+  SEND_NOTIFICATION
+}
+
+enum AutomationExecutionStatus {
+  RUNNING
+  SUCCESS
+  SKIPPED
+  FAILED
+}
+
 enum AuditAction {
   SUPER_ADMIN_LOGIN
   ORGANIZATION_SUSPENDED
   ORGANIZATION_ACTIVATED
 }
 
+model Notification {
+  id             String           @id @default(cuid())
+  type           NotificationType @default(SYSTEM)
+  title          String           @db.VarChar(191)
+  message        String           @db.Text
+  isRead         Boolean          @default(false)
+  readAt         DateTime?
+  organizationId String
+  userId         String
+  entityType     String?          @db.VarChar(50)
+  entityId       String?          @db.VarChar(191)
+  createdAt      DateTime         @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id],onDelete Cascade)
+
+  user User @relation("UserNotifications", fields: [userId],references: [id],onDelete Cascade)
+
+  @@index([organizationId, userId, isRead, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([userId, createdAt])
+}
+
 model Organization {
-  id          String                   @id @default(cuid())
-  name        String
-  slug        String                   @unique
-  status      OrganizationStatus       @default(ACTIVE)
-  createdAt   DateTime                 @default(now())
-  updatedAt   DateTime                 @updatedAt
-  invitations OrganizationInvitation[]
-  memberships OrganizationMembership[]
-  leads       Lead[]
-  contacts    Contact[]
-  deals       Deal[]
-  tasks       Task[]
-  activities  Activity[]
-  auditLogs   AuditLog[]
+  id            String                   @id @default(cuid())
+  name          String
+  slug          String                   @unique
+  status        OrganizationStatus       @default(ACTIVE)
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+  invitations   OrganizationInvitation[]
+  memberships   OrganizationMembership[]
+  notifications Notification[]
+  leads         Lead[]
+  contacts      Contact[]
+  deals         Deal[]
+  tasks         Task[]
+  activities    Activity[]
+  auditLogs     AuditLog[]
+
+  automationRules      AutomationRule[]
+  automationExecutions AutomationExecution[]
 }
 
 model User {
@@ -96,6 +150,7 @@ model User {
 
   memberships     OrganizationMembership[]
   sentInvitations OrganizationInvitation[] @relation("OrganizationInvitationsSent")
+  notifications   Notification[]           @relation("UserNotifications")
 
   leads      Lead[]     @relation("LeadAssignee")
   contacts   Contact[]  @relation("ContactAssignee")
@@ -136,6 +191,10 @@ model Lead {
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
+  convertedAt DateTime?
+  contactId   String?   @unique
+  contact     Contact?  @relation("LeadConvertedContact", fields: [contactId], references: [id], onDelete: SetNull)
+
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   assignedTo   User?        @relation("LeadAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
 
@@ -144,19 +203,19 @@ model Lead {
 }
 
 model Contact {
-  id             String   @id @default(cuid())
-  name           String
-  email          String?
-  phone          String?
-  company        String?
-  jobTitle       String?
-  organizationId String
-  assignedToId   String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  assignedTo   User?        @relation("ContactAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  id                String       @id @default(cuid())
+  name              String
+  email             String?
+  phone             String?
+  company           String?
+  jobTitle          String?
+  organizationId    String
+  assignedToId      String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  convertedFromLead Lead?        @relation("LeadConvertedContact")
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assignedTo        User?        @relation("ContactAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
   @@index([organizationId, assignedToId])
@@ -253,4 +312,46 @@ model OrganizationInvitation {
   @@index([organizationId, status, createdAt])
   @@index([email, status])
   @@index([expiresAt, status])
+}
+
+model AutomationRule {
+  id           String               @id @default(cuid())
+  name         String               @db.VarChar(191)
+  description  String?              @db.Text
+  trigger      AutomationTrigger
+  actionType   AutomationActionType
+  conditions   Json?
+  actionConfig Json
+  isEnabled    Boolean              @default(true)
+
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  executions   AutomationExecution[]
+
+  @@index([organizationId, isEnabled])
+  @@index([organizationId, trigger, isEnabled])
+}
+
+model AutomationExecution {
+  id           String                    @id @default(cuid())
+  eventKey     String                    @db.VarChar(191)
+  status       AutomationExecutionStatus @default(RUNNING)
+  context      Json?
+  errorMessage String?                   @db.Text
+  startedAt    DateTime                  @default(now())
+  completedAt  DateTime?
+  createdAt    DateTime                  @default(now())
+
+  organizationId String
+  ruleId         String
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rule         AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@unique([ruleId, eventKey])
+  @@index([organizationId, status, createdAt])
+  @@index([ruleId, createdAt])
 }

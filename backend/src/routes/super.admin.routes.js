@@ -12,6 +12,7 @@ import {
     superAdminUsers,
     superAdminAuditLogs
 } from "../controllers/super.admin.controller.js";
+import { getPlatformAuditLogs } from "../controllers/auditlog.controller.js";
 
 
 const router = Router();
@@ -27,6 +28,10 @@ router.get("/audit-logs", asyncHandler(superAdminAuditLogs));
 router.get("/dashboard", asyncHandler(superAdminDashboard));
 
 router.get("/organizations", asyncHandler(superAdminOrganizations));
+
+
+router.get("/audit-logs", superAdminMiddleware, getPlatformAuditLogs);
+
 
 router.get(
     "/organizations/:id",
