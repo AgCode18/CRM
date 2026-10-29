@@ -109,9 +109,9 @@ model Notification {
   entityId       String?          @db.VarChar(191)
   createdAt      DateTime         @default(now())
 
-  organization Organization @relation(fields: [organizationId], references: [id],onDelete Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  user User @relation("UserNotifications", fields: [userId],references: [id],onDelete Cascade)
+  user User @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, userId, isRead, createdAt])
   @@index([organizationId, createdAt])
