@@ -6,7 +6,7 @@ import {
     logout,
 } from "../controllers/auth.controller.js";
 import { authenticate } from "../middleware/auth.middleware.js";
-import { asyncHandler } from "../utils/async-handler.js";
+import { asyncHandler } from "../utils/async.handler.js";
 
 const router = Router();
 

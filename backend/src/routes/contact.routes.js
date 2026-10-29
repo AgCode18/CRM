@@ -1,6 +1,6 @@
 import { Router } from "express";
 
-import { asyncHandler } from "../utils/async-handler.js";
+import { asyncHandler } from "../utils/async.handler.js";
 import { requireOrganization } from "../middleware/organization.middleware.js";
 
 import {

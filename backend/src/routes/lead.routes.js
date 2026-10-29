@@ -1,6 +1,6 @@
 
 import { Router } from "express";
-import { asyncHandler } from "../utils/async-handler.js";
+import { asyncHandler } from "../utils/async.handler.js";
 import { requireOrganization } from "../middleware/organization.middleware.js";
 import {
     getLeads,
@@ -10,7 +10,7 @@ import {
     removeLead,
 } from "../controllers/lead.controller.js";
 
-import { convertLead } from "../controllers/lead-conversion.controller.js";
+import { convertLead } from "../controllers/lead.conversion.controller.js";
 
 const router = Router();
 

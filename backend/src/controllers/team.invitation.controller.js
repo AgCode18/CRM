@@ -4,7 +4,7 @@ import {
     listTeamInvitations,
     revokeTeamInvitation,
     acceptTeamInvitation,
-} from "../services/team-invitation.service.js";
+} from "../services/team.invitation.service.js";
 
 const createInvitationSchema = z.object({
     email: z.string().trim().email().max(191),

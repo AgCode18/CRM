@@ -1,5 +1,5 @@
 import prisma from "../config/prisma.js";
-import { asyncHandler } from "../utils/async-handler.js";
+import { asyncHandler } from "../utils/async.handler.js";
 
 export const getHealth = (req, res) => {
   res.status(200).json({

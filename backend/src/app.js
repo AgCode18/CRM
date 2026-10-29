@@ -21,7 +21,7 @@ import taskRoutes from "./routes/task.routes.js";
 import activityRoutes from "./routes/activity.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
 import dashboardRoutes from "./routes/dashboard.routes.js";
-import auditLogRoutes from "./routes/audit-log.routes.js";
+import auditLogRoutes from "./routes/auditlog.routes.js";
 import automationRoutes from "./routes/automation.routes.js";
 
 

@@ -2,7 +2,7 @@
 import {
     listPlatformAuditLogs,
     listOrganizationAuditLogs,
-} from "../services/audit-log.service.js";
+} from "../services/auditlog.service.js";
 
 export async function getPlatformAuditLogs(req, res) {
     const result = await listPlatformAuditLogs(req.query);

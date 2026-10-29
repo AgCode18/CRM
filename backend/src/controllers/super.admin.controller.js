@@ -8,7 +8,7 @@ import {
     updateOrganizationStatus,
     listPlatformUsers,
     listAuditLogs,
-} from "../services/super-admin.service.js";
+} from "../services/super.admin.service.js";
 
 const loginSchema = z.object({
     email: z.string().trim().email().max(254),

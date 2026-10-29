@@ -1,6 +1,6 @@
 
 import { z } from "zod";
-import { convertLeadToContact } from "../services/lead-conversion.service.js";
+import { convertLeadToContact } from "../services/lead.conversion.service.js";
 
 const optionalString = z.string().trim().optional();
 
